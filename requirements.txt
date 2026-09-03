@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+torch
+timm
+opencv-python
+albumentations
+grad-cam
+streamlit
+requests
+pillow
+numpy
