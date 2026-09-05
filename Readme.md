@@ -309,6 +309,7 @@ hackerthon-sih/
 │   ├── app.py
 │   ├── temp_heat.jpg
 │   └── temp_orig.jpg
+├── tests
 │
 ├── .gitignore
 ├── LICENSE
