@@ -1,248 +1,811 @@
- # Explainable AI for Diabetic Retinopathy Screening
+# Explainable AI for Diabetic Retinopathy Screening
 
-An end-to-end prototype for screening diabetic retinopathy (DR) from retinal fundus images. The application combines a Streamlit user interface with a FastAPI inference service. It classifies an uploaded image into one of five DR severity levels, produces a Grad-CAM visual explanation, and generates a downloadable PDF screening report.
+> **Smart India Hackathon (SIH) Prototype**
+> An end-to-end AI-assisted screening system for diabetic retinopathy using retinal fundus images, combining **automated image-quality assessment, robust inference, probability calibration, Grad-CAM explainability, and automated PDF reporting**.
 
-> **Important medical notice:** This project is intended for research, education, and demonstration purposes only. It is not a medical device and must not be used as a substitute for examination or diagnosis by a qualified ophthalmologist. The model output and recommendations require clinical validation before any real-world use.
+---
 
-## Key Capabilities
+## Overview
 
-- Upload PNG, JPG, or JPEG fundus images through a browser-based interface.
-- Capture basic patient information for report generation.
-- Classify the image using a five-class EfficientNet-B0 model.
-- Display the predicted diagnosis, severity grade, suggested action, and clinical recommendation.
-- Generate a Grad-CAM heatmap to show image regions that influenced the prediction.
-- Export a PDF report containing patient details, findings, recommendation, original image, and heatmap.
-- Preview the generated report in the Streamlit application.
-- Use CPU automatically, with CUDA selected when available.
+Diabetic Retinopathy (DR) is a diabetes-related retinal disease that can lead to severe vision impairment if not identified and managed appropriately.
 
-## Project Scope
+This project presents a modular AI-assisted screening prototype that analyzes retinal fundus images and provides:
 
-### In scope
+* Image-quality assessment before inference
+* Five-level DR severity classification
+* Test-Time Augmentation (TTA)
+* Calibrated prediction probabilities
+* Grad-CAM visual explanations
+* Screening recommendations
+* Automated PDF screening reports
 
-This prototype covers the screening workflow from image upload to explainable result presentation:
+The system follows a **human-in-the-loop approach**, where AI assists screening and prioritization while clinical interpretation remains the responsibility of qualified healthcare professionals.
 
-1. A user enters patient metadata in the Streamlit sidebar.
-2. The user uploads a retinal fundus image.
-3. Streamlit sends the image to the FastAPI `/predict` endpoint.
-4. The backend preprocesses the image, runs inference, and selects the highest-scoring class.
-5. Grad-CAM creates a visual explanation for the predicted class.
-6. The API returns structured diagnostic information and a Base64-encoded heatmap.
-7. The frontend displays the result and creates a PDF report.
+---
 
-### Current limitations
+## Medical Disclaimer
 
-- There is no authentication, user management, database, audit trail, or persistent case history.
-- The API currently exposes only one prediction endpoint.
-- Model confidence scores, calibration, uncertainty, and quality checks are not returned.
-- The model checkpoint and training dataset provenance are not included in this repository.
-- Clinical recommendations are static mappings based on the predicted class, not patient-specific medical advice.
-- The frontend assumes that the backend is running locally at `http://127.0.0.1:8000`.
-- Uploaded images are processed in memory by the API, but temporary JPEG files are written while generating the PDF.
-- The current dependency manifest should include `fpdf2` (or the compatible `fpdf` package) because the frontend imports `from fpdf import FPDF`.
+This project is a **research, educational, and hackathon prototype**.
 
-## Technology Stack
+It is **not a certified medical device** and must not be used as a substitute for examination, diagnosis, or treatment by a qualified ophthalmologist.
 
-| Area | Technology | Purpose |
-| --- | --- | --- |
-| User interface | Streamlit | Image upload, patient fields, result display, and report preview |
-| API | FastAPI | HTTP inference service and JSON response contract |
-| API server | Uvicorn | Runs the FastAPI application locally |
-| Deep learning | PyTorch | Model execution and device management |
-| Model architecture | `timm` EfficientNet-B0 | Five-class retinal image classification |
-| Image processing | Pillow, OpenCV, NumPy | Image decoding, resizing, visualization, and conversion |
-| Preprocessing | Albumentations | Resize, ImageNet normalization, and tensor conversion |
-| Explainability | `pytorch-grad-cam` | Grad-CAM heatmap generation |
-| HTTP client | Requests | Frontend-to-backend communication |
-| Reporting | FPDF | PDF report generation |
-| Model artifact | `best_dr_model.pth` | Trained model weights loaded by the backend |
+The model predictions, confidence values, recommendations, and Grad-CAM visualizations require appropriate clinical validation before any real-world medical deployment.
+
+---
+
+## Key Features
+
+### 🖼️ Fundus Image Upload
+
+A browser-based Streamlit interface allows users to upload retinal fundus images.
+
+Supported formats:
+
+* PNG
+* JPG
+* JPEG
+
+Patient metadata can also be entered to generate a structured screening report.
+
+---
+
+### 🔍 Image Quality Assessment
+
+Images are evaluated before model inference to identify potentially unsuitable inputs.
+
+The quality-check pipeline considers factors such as:
+
+* Image blur
+* Illumination
+* Contrast
+* Image artifacts
+
+The objective is to prevent poor-quality images from being blindly passed to the classification model.
+
+```text
+Fundus Image
+      │
+      ▼
+Quality Assessment
+      │
+ ┌────┴────┐
+ ▼         ▼
+PASS      FAIL
+ │         │
+ ▼         ▼
+AI        Recapture /
+Screening Manual Review
+```
+
+---
+
+### 🧠 DR Severity Classification
+
+The prototype uses an **EfficientNet-B0** deep-learning architecture for five-class diabetic retinopathy classification.
+
+```text
+Fundus Image
+      │
+      ▼
+Preprocessing
+      │
+      ▼
+EfficientNet-B0
+      │
+      ▼
+DR Severity
+```
+
+The classification levels are:
+
+| Grade | Severity               |
+| ----: | ---------------------- |
+| **0** | No DR                  |
+| **1** | Mild NPDR              |
+| **2** | Moderate NPDR          |
+| **3** | Severe NPDR            |
+| **4** | Proliferative DR (PDR) |
+
+---
+
+### 🔄 Test-Time Augmentation
+
+The system evaluates multiple transformed versions of the input image during inference.
+
+Possible transformations include:
+
+* Horizontal flipping
+* Vertical flipping
+* Rotation
+* Other inference-time augmentations
+
+The resulting predictions are aggregated to reduce prediction variance and improve robustness against image orientation and difficult edge cases.
+
+```text
+                    Fundus Image
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+       Original         Flip         Rotation
+          │              │              │
+          └──────────────┼──────────────┘
+                         ▼
+                 Model Predictions
+                         │
+                         ▼
+                    Aggregation
+```
+
+---
+
+### 📊 Probability Calibration
+
+Deep-learning models can produce confidence scores that do not always correspond well to actual prediction reliability.
+
+The prototype includes post-hoc probability calibration to improve the interpretation of model confidence.
+
+```text
+Raw Model Logits
+       │
+       ▼
+Calibration Layer
+       │
+       ▼
+Calibrated Probabilities
+```
+
+This provides more meaningful confidence information for the screening interface.
+
+---
+
+### 🔬 Explainable AI with Grad-CAM
+
+The system generates **Gradient-weighted Class Activation Mapping (Grad-CAM)** visualizations.
+
+Instead of presenting only:
+
+```text
+Prediction → Moderate NPDR
+```
+
+the system provides:
+
+```text
+Prediction
+    +
+Probability Distribution
+    +
+Grad-CAM Heatmap
+```
+
+The heatmap indicates spatial regions that contributed to the model's prediction.
+
+This can assist with:
+
+* Model interpretation
+* Visual inspection
+* Debugging
+* Research analysis
+* Human review
+
+> Grad-CAM indicates model activation patterns and should not be interpreted as a clinically validated lesion detector.
+
+---
+
+### 📄 Automated Screening Reports
+
+The frontend can generate PDF screening reports containing information such as:
+
+* Patient metadata
+* Fundus image
+* Predicted DR severity
+* Probability distribution
+* Confidence information
+* Screening recommendation
+* Grad-CAM visualization
+
+This converts the AI output into a structured, human-readable screening artifact.
+
+---
+
+## System Architecture
+
+The current prototype follows a modular client-server architecture.
+
+```text
+┌─────────────────────────────────────┐
+│          Streamlit Frontend         │
+│                                     │
+│ • Patient Metadata                  │
+│ • Fundus Image Upload               │
+│ • Result Visualization              │
+│ • Probability Display               │
+│ • Grad-CAM Visualization            │
+│ • PDF Report Generation             │
+└──────────────────┬──────────────────┘
+                   │
+                   │ HTTP / Multipart
+                   ▼
+┌─────────────────────────────────────┐
+│           FastAPI Backend           │
+│                                     │
+│ • API Routing                       │
+│ • Image Validation                  │
+│ • Image Quality Assessment          │
+│ • TTA Inference                     │
+│ • Model Prediction                  │
+│ • Probability Calibration           │
+│ • Grad-CAM Generation               │
+└──────────────────┬──────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────┐
+│          EfficientNet-B0            │
+│                                     │
+│        DR Severity Prediction       │
+└─────────────────────────────────────┘
+```
+
+---
+
+## End-to-End Workflow
+
+```text
+              Fundus Image
+                    │
+                    ▼
+           Streamlit Interface
+                    │
+                    ▼
+             FastAPI Backend
+                    │
+                    ▼
+          Image Quality Check
+                    │
+                    ▼
+              Preprocessing
+                    │
+                    ▼
+        Test-Time Augmentation
+                    │
+                    ▼
+           EfficientNet-B0
+                    │
+                    ▼
+        Probability Calibration
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+     DR Prediction         Grad-CAM
+          │                   │
+          └─────────┬─────────┘
+                    ▼
+            Result Dashboard
+                    │
+                    ▼
+             PDF Screening
+                Report
+```
+
+---
 
 ## Repository Structure
 
 ```text
-hackerthon/
+hackerthon-sih/
+│
 ├── backend/
-│   ├── best_dr_model.pth       # Trained EfficientNet-B0 weights
-│   └── main.py                 # FastAPI app, preprocessing, inference, Grad-CAM
+│   ├── best_dr_model.pth
+│   ├── calibration.py
+│   ├── image_quality.py
+│   ├── main.py
+│   ├── train_improved.py
+│   └── tta.py
+│
+├── data/
+│   └── # Local dataset / validation data
+│
 ├── frontend/
-│   └── app.py                  # Streamlit UI and PDF report generation
-├── requirements.txt            # Python dependencies
+│   ├── app.py
+│   ├── temp_heat.jpg
+│   └── temp_orig.jpg
+│
+├── .gitignore
 ├── LICENSE
-└── Readme.md
+├── README.md
+└── requirements.txt
 ```
 
-## DR Classification Levels
+### Module Responsibilities
 
-The backend maps the model's numeric output to the following screening categories:
+| Module                      | Responsibility                                        |
+| --------------------------- | ----------------------------------------------------- |
+| `frontend/app.py`           | Streamlit UI, API communication and PDF generation    |
+| `backend/main.py`           | FastAPI routing, inference orchestration and Grad-CAM |
+| `backend/image_quality.py`  | Image quality assessment                              |
+| `backend/tta.py`            | Test-Time Augmentation                                |
+| `backend/calibration.py`    | Probability calibration                               |
+| `backend/train_improved.py` | Model training and evaluation                         |
+| `backend/best_dr_model.pth` | Trained EfficientNet-B0 checkpoint                    |
 
-| Grade | Label | Current action mapping |
-| ---: | --- | --- |
-| 0 | No DR | Routine eye checkup |
-| 1 | Mild DR | Follow-up in 6-12 months |
-| 2 | Moderate DR | Referral to an ophthalmologist |
-| 3 | Severe DR | Urgent specialist referral |
-| 4 | Proliferative DR | Immediate emergency referral |
+---
 
-These mappings are application text and should not be interpreted as validated clinical protocols.
+## Technology Stack
 
-## API Reference
+| Category            | Technology         | Purpose                                |
+| ------------------- | ------------------ | -------------------------------------- |
+| Frontend            | Streamlit          | Interactive screening interface        |
+| Backend             | FastAPI            | REST API and inference service         |
+| Server              | Uvicorn            | ASGI application server                |
+| Deep Learning       | PyTorch            | Model training and inference           |
+| Model Architecture  | EfficientNet-B0    | DR classification                      |
+| Model Library       | `timm`             | EfficientNet implementation            |
+| Explainability      | `pytorch-grad-cam` | Grad-CAM generation                    |
+| Computer Vision     | OpenCV             | Image-quality analysis                 |
+| Image Processing    | Pillow             | Image loading and processing           |
+| Augmentation        | Albumentations     | Image transformation and preprocessing |
+| Numerical Computing | NumPy              | Numerical operations                   |
+| Reporting           | FPDF2              | PDF report generation                  |
 
-### `POST /predict`
-
-Accepts one multipart form-data file:
-
-```text
-file: <fundus image>
-```
-
-Example response shape:
-
-```json
-{
-  "diagnosis": "Moderate DR",
-  "severity_grade": 2,
-  "action_required": "Referral to Ophthalmologist",
-  "clinical_recommendation": "...",
-  "heatmap_base64": "<base64-encoded JPEG>"
-}
-```
-
-The image is converted to RGB, resized to `224 x 224`, normalized with ImageNet statistics, and passed to the model. The returned heatmap is a JPEG encoded as Base64.
+---
 
 ## Local Setup
 
 ### Prerequisites
 
-- Python 3.9 or later
-- A virtual environment is recommended.
-- The model file `backend/best_dr_model.pth` must be present.
-- A CUDA-enabled PyTorch installation is optional; the application falls back to CPU.
+* Python 3.9+
+* Git
+* Virtual environment
+* CPU or CUDA-compatible GPU
 
-### Installation
+### Clone the Repository
 
-From the `hackerthon` directory:
+```bash
+git clone https://github.com/PalakVerma-code/hackerthon-sih.git
+
+cd hackerthon-sih
+```
+
+### Create a Virtual Environment
+
+**Windows PowerShell**
+
+```powershell
+python -m venv .venv
+
+.\.venv\Scripts\Activate.ps1
+```
+
+**Linux / macOS**
 
 ```bash
 python -m venv .venv
-```
 
-Activate the environment:
-
-```bash
-# Windows PowerShell
-.\.venv\Scripts\Activate.ps1
-
-# macOS/Linux
 source .venv/bin/activate
 ```
 
-Install the declared dependencies:
+### Install Dependencies
 
 ```bash
+python -m pip install --upgrade pip
+
 pip install -r requirements.txt
 ```
 
-Install the PDF dependency required by `frontend/app.py` if it is not already available:
+If `fpdf2` is not included in `requirements.txt`:
 
 ```bash
 pip install fpdf2
 ```
 
-For production or GPU use, install the PyTorch build appropriate for the target CUDA version by following the official PyTorch installation instructions.
+---
 
 ## Running the Application
 
-Start the backend first from the `backend` directory so the relative checkpoint path resolves correctly:
+### Start the FastAPI Backend
+
+Open a terminal, activate the virtual environment, and run:
 
 ```bash
 cd backend
+
 uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-In a second terminal, activate the same virtual environment and start the frontend from the project root:
+The API will be available at:
 
-```bash
-cd ..
-streamlit run frontend/app.py
+```text
+http://127.0.0.1:8000
 ```
 
-Open the URL printed by Streamlit, upload a fundus image, enter patient details, and select **Run AI Diagnosis**.
-
-The FastAPI interactive documentation is available at:
+Interactive API documentation:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-## Processing Flow
+### Start the Streamlit Frontend
 
-```text
-Fundus image
-	|
-	v
-Streamlit frontend -- multipart upload --> FastAPI backend
-									|
-									v
-						RGB conversion and preprocessing
-									|
-									v
-						    EfficientNet-B0 inference
-									|
-									+--> DR grade and recommendation
-									|
-									+--> Grad-CAM heatmap
-									|
-									v
-					JSON response with Base64 heatmap
-	|
-	v
-Result display, report preview, and PDF download
+Open a second terminal, activate the same virtual environment, and run from the project root:
+
+```bash
+streamlit run frontend/app.py
 ```
 
-## Quality, Safety, and Deployment Considerations
+The Streamlit interface will open in the browser.
 
-Before any clinical or public deployment, the system should have:
+---
 
-- Evaluation on a representative, independently held-out dataset.
-- Sensitivity, specificity, AUROC, F1, confusion matrix, and subgroup analysis.
-- Image-quality detection and clear handling of ungradable images.
-- Model versioning, reproducible training metadata, and dataset documentation.
-- Secure transport, authentication, authorization, input validation, and rate limiting.
-- Removal or protection of personally identifiable patient information.
-- Structured logging, monitoring, audit records, and failure alerts.
-- Clinical review, prospective validation, regulatory assessment, and human oversight.
+## API
 
-## Future Improvements
+The primary inference endpoint is:
 
-### Model and clinical workflow
+```http
+POST /predict
+```
 
-- Return class probabilities, confidence thresholds, and an explicit “requires review” state.
-- Add fundus-image quality assessment before classification.
-- Evaluate and calibrate performance across cameras, lighting conditions, regions, age groups, and other relevant subgroups.
-- Support multi-image examinations for both eyes and longitudinal comparison.
-- Add detection or segmentation of lesions such as microaneurysms, hemorrhages, and exudates.
-- Track model versions and include the model version in every report.
+The endpoint accepts the fundus image through a multipart HTTP request along with the required input data.
 
-### Backend and platform
+### Inference Flow
 
-- Add request validation, file-size limits, content-type checks, and consistent error responses.
-- Move model loading and Grad-CAM initialization into application startup so they are not recreated per request.
-- Add automated tests for preprocessing, API responses, class mappings, and invalid uploads.
-- Add authentication, role-based access, encrypted storage, audit logging, and configurable backend URLs.
-- Containerize the services and add CI/CD with security and quality checks.
-- Add health and readiness endpoints for deployment monitoring.
+```text
+POST /predict
+      │
+      ▼
+Input Validation
+      │
+      ▼
+Image Quality Assessment
+      │
+      ▼
+Preprocessing
+      │
+      ▼
+TTA
+      │
+      ▼
+EfficientNet-B0
+      │
+      ▼
+Probability Calibration
+      │
+      ▼
+Grad-CAM
+      │
+      ▼
+Prediction Response
+```
 
-### Frontend and reporting
+### Example Response
 
-- Add clear loading, timeout, backend-unavailable, and invalid-image states.
-- Replace default patient values with a validated form and explicit consent workflow.
-- Improve PDF generation with secure temporary-file handling and a unique report identifier.
-- Add report history and export formats such as JSON and CSV.
-- Provide accessible, multilingual, and responsive clinical workflows.
+A representative response may look like:
 
-## Contributing
+```json
+{
+    "predicted_class": 2,
+    "diagnosis": "Moderate NPDR",
+    "confidence": 0.87,
+    "probabilities": {
+        "No DR": 0.03,
+        "Mild NPDR": 0.07,
+        "Moderate NPDR": 0.87,
+        "Severe NPDR": 0.02,
+        "PDR": 0.01
+    },
+    "quality_status": "PASS"
+}
+```
 
-Contributions should remain focused, document behavioral changes, and include tests where practical. Changes affecting model predictions, clinical wording, patient data, or report output should include an explanation of validation and known limitations.
+> The exact response structure depends on the implementation in `backend/main.py`.
+
+---
+
+## Screening Decision Flow
+
+The prototype is designed around a quality-aware screening process.
+
+```text
+                 Upload Image
+                      │
+                      ▼
+             Is Image Suitable?
+                 /          \
+               No            Yes
+               │              │
+               ▼              ▼
+        Recapture /       AI Inference
+        Manual Review          │
+                               ▼
+                         DR Classification
+                               │
+                    ┌──────────┴──────────┐
+                    ▼                     ▼
+              Confidence             Grad-CAM
+                    │                     │
+                    └──────────┬──────────┘
+                               ▼
+                       Screening Result
+                               │
+                               ▼
+                         PDF Report
+```
+
+---
+
+## Safety & Responsible AI
+
+Medical AI systems require safeguards beyond model accuracy.
+
+### Image Quality Guardrail
+
+Poor-quality images should not automatically be passed to the classifier.
+
+### Human-in-the-Loop
+
+The system is intended to assist screening rather than replace ophthalmologists.
+
+### Confidence Awareness
+
+Calibrated probabilities are provided to improve interpretation of model confidence, but confidence should not be treated as clinical certainty.
+
+### Explainability
+
+Grad-CAM provides model-level visual explanations but does not establish clinical causality.
+
+### Data Protection
+
+Production deployments should implement:
+
+* Secure data transmission
+* Authentication and authorization
+* Encryption
+* Access control
+* Audit logging
+* Secure temporary storage
+* Automatic deletion of temporary files
+* Data minimization
+* De-identification where appropriate
+
+---
+
+## Current Prototype Scope
+
+The current working prototype focuses on the complete **AI screening and explainability loop**:
+
+```text
+                 CURRENT PROTOTYPE
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+ Image Quality      AI Model       Explainability
+ Assessment         Inference          │
+        │              │               │
+        │          EfficientNet        │
+        │              │            Grad-CAM
+        │             TTA               │
+        │              │               │
+        └──────────────┼───────────────┘
+                       ▼
+              Calibrated Results
+                       │
+                       ▼
+                PDF Screening
+                   Report
+```
+
+This provides a functional foundation that can be extended with more advanced retinal analysis and healthcare workflow simulation.
+
+---
+
+## Model Training
+
+Training and experimentation are separated from the inference runtime.
+
+Training code:
+
+```text
+backend/train_improved.py
+```
+
+Run from the project root:
+
+```bash
+python backend/train_improved.py
+```
+
+The training pipeline can be independently modified for:
+
+* Hyperparameter tuning
+* Loss-function experimentation
+* Dataset changes
+* Model fine-tuning
+* Evaluation
+
+---
+
+## Evaluation
+
+Model performance should be evaluated using more than accuracy.
+
+Recommended metrics include:
+
+| Metric               | Purpose                                |
+| -------------------- | -------------------------------------- |
+| Accuracy             | Overall classification performance     |
+| Precision            | Reliability of positive predictions    |
+| Recall / Sensitivity | Ability to detect relevant cases       |
+| Specificity          | Ability to identify non-cases          |
+| F1 Score             | Balance between precision and recall   |
+| Confusion Matrix     | Class-level error analysis             |
+| ROC-AUC              | Discrimination performance             |
+| PR-AUC               | Performance under class imbalance      |
+| Calibration Error    | Reliability of predicted probabilities |
+
+For a medical screening system, **sensitivity, specificity, calibration, robustness, and external validation** are especially important.
+
+---
+
+## Prototype Limitations
+
+The current prototype should not be considered clinically validated.
+
+Performance may vary due to:
+
+* Dataset size
+* Dataset diversity
+* Class imbalance
+* Image acquisition conditions
+* Camera characteristics
+* Annotation quality
+* Population differences
+* Distribution shift
+
+Performance on a particular dataset does not guarantee equivalent performance in hospitals, clinics, or field environments.
+
+External validation and clinical evaluation are required before real-world deployment.
+
+---
+
+## Future Development
+
+The current prototype is intentionally designed as a modular foundation for the broader SIH solution.
+
+Planned extensions include:
+
+* Advanced retinal structure segmentation
+* Optic disc localization
+* Fovea localization
+* Retinal vessel segmentation
+* Microaneurysm detection
+* Exudate segmentation
+* Hemorrhage detection
+* Neovascularization detection
+* Lesion-level clinical evidence
+* Advanced image enhancement
+* External clinical validation
+* Telemedicine workflow simulation
+* Resource allocation optimization
+
+---
+
+# SIH Alignment & Future Integration
+
+The broader SIH problem calls for a deployment-oriented retinal screening system capable of handling real-world challenges such as variable image quality, explainability, clinical validation, and large-scale telemedicine workflows.
+
+The current prototype establishes the core AI screening layer.
+
+The next development stage will extend the system toward the complete SIH vision using **MATLAB and Simulink**.
+
+### MATLAB Integration
+
+MATLAB-based development is planned for advanced retinal image processing and analysis, including:
+
+```text
+Image Quality Assessment
+        │
+        ▼
+Adaptive Enhancement
+        │
+        ▼
+Retinal Structure Analysis
+        │
+        ▼
+Lesion Detection
+        │
+        ▼
+Clinical Evidence
+```
+
+Potential components include:
+
+* CLAHE-based enhancement
+* Illumination normalization
+* Advanced denoising
+* Field-of-view assessment
+* Retinal vessel segmentation
+* Optic disc localization
+* Fovea localization
+* Microaneurysm detection
+* Exudate segmentation
+* Hemorrhage detection
+* Neovascularization analysis
+
+### Simulink Integration
+
+Simulink will be used in the planned system-level simulation of the telemedicine screening workflow.
+
+Potential parameters include:
+
+* Fundus image acquisition rate
+* Network bandwidth
+* Image transmission time
+* AI processing throughput
+* Server capacity
+* Ophthalmologist review capacity
+* Patient queue size
+* Referral rate
+* District-level screening workload
+
+The objective is to study how the AI-assisted workflow could scale to large screening programs and optimize resource allocation.
+
+### SIH Performance Targets
+
+The original SIH problem specifies target performance for referable DR of:
+
+* **Sensitivity > 90%**
+* **Specificity > 85%**
+
+These are treated as **target validation criteria for the extended system**, not as claimed performance of the current prototype.
+
+The extended solution will require appropriate benchmark evaluation, external validation, and clinical assessment before these targets can be considered achieved.
+
+---
+
+## Project Vision
+
+The project is designed to evolve from a functional AI prototype into a broader **quality-aware, explainable, clinically evaluable, and scalable DR screening platform**.
+
+```text
+CURRENT
+Python AI Screening Prototype
+        │
+        ▼
+MATLAB Retinal Image Analysis
+        │
+        ▼
+Lesion-Level Clinical Evidence
+        │
+        ▼
+Advanced Explainable Screening
+        │
+        ▼
+Simulink Telemedicine Simulation
+        │
+        ▼
+Resource Optimization
+        │
+        ▼
+Scalable District-Level Screening
+```
+
+The immediate focus is on building a reliable and demonstrable AI screening prototype, while the architecture provides a clear path toward the complete SIH problem requirements.
+
+---
 
 ## License
 
-See [LICENSE](LICENSE) for the terms governing this project.
+This project is distributed under the terms specified in:
+
+```text
+MIT LICENSE
+```
+
+---
+
+## Acknowledgement
+
+Developed as a **Smart India Hackathon prototype** exploring explainable artificial intelligence for diabetic retinopathy screening and scalable healthcare applications.
+
+---
+
+> **Check the image → Screen with AI → Calibrate the confidence → Explain the prediction → Generate the report → Keep the clinician in the loop.**
