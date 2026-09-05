@@ -459,10 +459,10 @@ Input Validation
 Image Quality Assessment
       │
       ▼
-Preprocessing
+ Preprocessing
       │
       ▼
-TTA
+     TTA
       │
       ▼
 EfficientNet-B0
@@ -471,7 +471,7 @@ EfficientNet-B0
 Probability Calibration
       │
       ▼
-Grad-CAM
+   Grad-CAM
       │
       ▼
 Prediction Response
@@ -514,10 +514,10 @@ The prototype is designed around a quality-aware screening process.
                No            Yes
                │              │
                ▼              ▼
-        Recapture /       AI Inference
-        Manual Review          │
-                               ▼
-                         DR Classification
+         Recapture /       AI Inference
+         Manual Review          │
+                                ▼
+                          DR Classification
                                │
                     ┌──────────┴──────────┐
                     ▼                     ▼
@@ -525,10 +525,10 @@ The prototype is designed around a quality-aware screening process.
                     │                     │
                     └──────────┬──────────┘
                                ▼
-                       Screening Result
+                        Screening Result
                                │
                                ▼
-                         PDF Report
+                          PDF Report
 ```
 
 ---
@@ -583,15 +583,15 @@ The current working prototype focuses on the complete **AI screening and explain
         │              │               │
         │          EfficientNet        │
         │              │            Grad-CAM
-        │             TTA               │
+        │             TTA              │
         │              │               │
         └──────────────┼───────────────┘
                        ▼
-              Calibrated Results
+               Calibrated Results
                        │
                        ▼
-                PDF Screening
-                   Report
+                 PDF Screening
+                    Report
 ```
 
 This provides a functional foundation that can be extended with more advanced retinal analysis and healthcare workflow simulation.
