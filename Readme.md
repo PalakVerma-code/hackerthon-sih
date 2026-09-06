@@ -124,11 +124,11 @@ The resulting predictions are aggregated to reduce prediction variance and impro
 ```text
                     Fundus Image
                          │
-          ┌──────────────┼──────────────┐
-          ▼              ▼              ▼
-       Original         Flip         Rotation
-          │              │              │
-          └──────────────┼──────────────┘
+          ┌─────────── ┼──────────────┐
+          ▼             ▼                ▼
+       Original         Flip            Rotation
+          │              │                 │
+          └────────────┼──────────────┘
                          ▼
                  Model Predictions
                          │
@@ -274,17 +274,17 @@ The current prototype follows a modular client-server architecture.
                     ▼
         Probability Calibration
                     │
-          ┌─────────┴─────────┐
-          ▼                   ▼
-     DR Prediction         Grad-CAM
-          │                   │
+          ┌────────┴─────────┐
+          ▼                      ▼
+     DR Prediction           Grad-CAM
+          │                      │
           └─────────┬─────────┘
-                    ▼
-            Result Dashboard
-                    │
-                    ▼
-             PDF Screening
-                Report
+                      ▼
+             Result Dashboard
+                       │
+                       ▼
+                 PDF Screening
+                     Report
 ```
 
 ---
